@@ -1,5 +1,5 @@
 import { cache } from "react";
-import type { DashboardSession, DashboardOrchestratorLink } from "@/lib/types";
+import { TERMINAL_STATUSES, type DashboardSession, type DashboardOrchestratorLink } from "@/lib/types";
 import { getServices, getSCM } from "@/lib/services";
 import {
   sessionToDashboard,
@@ -67,7 +67,6 @@ export const getDashboardPageData = cache(async function getDashboardPageData(pr
       metaTimeout,
     ]);
 
-    const terminalStatuses = new Set(["merged", "killed", "cleanup", "done", "terminated"]);
     const enrichPromises = coreSessions.map((core, index) => {
       if (!core.pr) return Promise.resolve();
 
@@ -101,11 +100,7 @@ export const getDashboardPageData = cache(async function getDashboardPageData(pr
           sessionPR.unresolvedComments = cached.unresolvedComments;
         }
 
-        if (
-          terminalStatuses.has(core.status) ||
-          cached.state === "merged" ||
-          cached.state === "closed"
-        ) {
+        if (TERMINAL_STATUSES.has(core.status) || cached.state === "merged" || cached.state === "closed") {
           return Promise.resolve();
         }
       }
