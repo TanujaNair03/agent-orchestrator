@@ -12,8 +12,9 @@ import {
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
+import type {
+  StateStore} from "../state-store.js";
 import {
-  StateStore,
   createStateStore,
   migrateFromMetadata,
   migrateAllProjects,
