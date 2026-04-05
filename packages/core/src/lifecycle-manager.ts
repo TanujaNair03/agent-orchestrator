@@ -257,6 +257,7 @@ export function createLifecycleManager(deps: LifecycleManagerDeps): LifecycleMan
     pollCycleCount++;
     if (pollCycleCount >= 10) {
       pollCycleCount = 0;
+      const compactCorrelationId = createCorrelationId("compact-log");
       try {
         stateStore.compactLog();
         observer?.recordOperation?.({
@@ -265,6 +266,7 @@ export function createLifecycleManager(deps: LifecycleManagerDeps): LifecycleMan
           outcome: "success",
           projectId: scopedProjectId,
           level: "info",
+          correlationId: compactCorrelationId,
         });
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -275,6 +277,7 @@ export function createLifecycleManager(deps: LifecycleManagerDeps): LifecycleMan
           reason: errorMsg,
           projectId: scopedProjectId,
           level: "warn",
+          correlationId: compactCorrelationId,
         });
         process.stderr.write(
           JSON.stringify({
