@@ -75,7 +75,17 @@ export async function GET(request: Request) {
 
     const allSessions = requestedProjectId ? await sessionManager.list() : coreSessions;
 
-    let workerSessions = visibleSessions.filter((session) => !isOrchestratorSession(session));
+    const allSessionPrefixes = Object.entries(config.projects).map(
+      ([projectId, p]) => p.sessionPrefix ?? projectId,
+    );
+    let workerSessions = visibleSessions.filter(
+      (session) =>
+        !isOrchestratorSession(
+          session,
+          config.projects[session.projectId]?.sessionPrefix ?? session.projectId,
+          allSessionPrefixes,
+        ),
+    );
 
     // Convert to dashboard format
     let dashboardSessions = workerSessions.map(sessionToDashboard);
@@ -94,22 +104,26 @@ export async function GET(request: Request) {
     );
 
     if (metadataSettled) {
-      const prDeadlineAt = Date.now() + PR_ENRICH_TIMEOUT_MS;
+      const prEnrichPromises: Promise<boolean>[] = [];
+
       for (let i = 0; i < workerSessions.length; i++) {
         const core = workerSessions[i];
         if (!core?.pr) continue;
-
-        const remainingMs = prDeadlineAt - Date.now();
-        if (remainingMs <= 0) break;
 
         const project = resolveProject(core, config.projects);
         const scm = getSCM(registry, project);
         if (!scm) continue;
 
-        await settlesWithin(
-          enrichSessionPR(dashboardSessions[i], scm, core.pr),
-          Math.min(remainingMs, PER_PR_ENRICH_TIMEOUT_MS),
+        prEnrichPromises.push(
+          settlesWithin(
+            enrichSessionPR(dashboardSessions[i], scm, core.pr),
+            PER_PR_ENRICH_TIMEOUT_MS,
+          ),
         );
+      }
+
+      if (prEnrichPromises.length > 0) {
+        await settlesWithin(Promise.allSettled(prEnrichPromises), PR_ENRICH_TIMEOUT_MS);
       }
     }
 
@@ -130,7 +144,7 @@ export async function GET(request: Request) {
         stats: computeStats(dashboardSessions),
         orchestratorId,
         orchestrators,
-        globalPause: resolveGlobalPause(allSessions),
+        globalPause: resolveGlobalPause(allSessions, config.projects),
       },
       { status: 200 },
       correlationId,
