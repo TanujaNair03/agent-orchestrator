@@ -440,6 +440,25 @@ describe("session claim-pr", () => {
     expect(output).toContain("feat/existing-pr");
   });
 
+  it("claims a PR for an explicit session without assign-on-github flag", async () => {
+    await program.parseAsync([
+      "node",
+      "test",
+      "session",
+      "claim-pr",
+      "42",
+      "app-2",
+    ]);
+
+    expect(mockSessionManager.claimPR).toHaveBeenCalledWith("app-2", "42", {
+      assignOnGithub: undefined,
+    });
+
+    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join("\n");
+    expect(output).toContain("Session app-2 claimed PR #42");
+    expect(output).toContain("feat/existing-pr");
+  });
+
   it("uses AO_SESSION_NAME when session argument is omitted", async () => {
     process.env["AO_SESSION_NAME"] = "app-7";
 
