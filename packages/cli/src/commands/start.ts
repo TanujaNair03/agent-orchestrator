@@ -36,7 +36,11 @@ import {
 import { parse as yamlParse, stringify as yamlStringify } from "yaml";
 import { exec, execSilent, git } from "../lib/shell.js";
 import { getSessionManager } from "../lib/create-session-manager.js";
-import { ensureLifecycleWorker, stopLifecycleWorker } from "../lib/lifecycle-service.js";
+import {
+  ensureLifecycleWorker,
+  stopLifecycleWorker,
+  type LifecycleWorkerStatus,
+} from "../lib/lifecycle-service.js";
 import {
   findWebDir,
   buildDashboardEnv,
@@ -898,7 +902,7 @@ async function runStartup(
   projectId: string,
   project: ProjectConfig,
   opts?: { dashboard?: boolean; orchestrator?: boolean; rebuild?: boolean },
-): Promise<number> {
+): Promise<{ port: number; lifecycleStatus: LifecycleWorkerStatus | null }> {
   // Ensure tmux is available before doing anything — covers all entry paths
   // (normal start, URL start, retry with existing config)
   const runtime = config.defaults?.runtime ?? "tmux";
@@ -1067,7 +1071,7 @@ async function runStartup(
     });
   }
 
-  return port;
+  return { port, lifecycleStatus };
 }
 
 /**
@@ -1286,13 +1290,17 @@ export function registerStart(program: Command): void {
             project = config.projects[projectId];
           }
 
-          const actualPort = await runStartup(config, projectId, project, opts);
+          const startup = await runStartup(config, projectId, project, opts);
+          const runningPid =
+            opts?.dashboard === false && startup.lifecycleStatus?.pid
+              ? startup.lifecycleStatus.pid
+              : process.pid;
 
           // ── Register in running.json (Step 11) ──
           await register({
-            pid: process.pid,
+            pid: runningPid,
             configPath: config.configPath,
-            port: actualPort,
+            port: startup.port,
             startedAt: new Date().toISOString(),
             projects: Object.keys(config.projects),
           });

@@ -252,7 +252,29 @@ export class StateStore {
     }
 
     // Replace the live log with the compacted content
-    renameSync(tempFile, this.eventsFile);
+    // Wrap in try/catch to ensure the temp file is cleaned up if rename fails
+    try {
+      renameSync(tempFile, this.eventsFile);
+    } catch (renameErr) {
+      // Log the error gracefully
+      process.stderr.write(
+        JSON.stringify({
+          source: "state-store",
+          operation: "compact_log_swap",
+          level: "warn",
+          message: renameErr instanceof Error ? renameErr.message : String(renameErr),
+          timestamp: new Date().toISOString(),
+        }) + "\n",
+      );
+      // Clean up the temp file to avoid leaving orphaned files
+      try {
+        unlinkSync(tempFile);
+      } catch {
+        // Best effort cleanup — ignore
+      }
+      // The original events.jsonl remains uncorrupted
+      return;
+    }
 
     this.cleanupArchives();
   }

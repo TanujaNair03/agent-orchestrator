@@ -1303,8 +1303,10 @@ export function createLifecycleManager(deps: LifecycleManagerDeps): LifecycleMan
         }
       }
     } else if (!tracked) {
-      // No transition but ensure we have a persisted snapshot for new sessions
-      stateStore.syncState({
+      // No transition yet, but this is the first time we've seen the session.
+      // Persist an initial snapshot so brand-new sessions show up in events.jsonl
+      // even before their first status change.
+      stateStore.appendEvent({
         timestamp: Math.floor(Date.now() / 1000),
         sessionId: session.id,
         projectId: session.projectId,

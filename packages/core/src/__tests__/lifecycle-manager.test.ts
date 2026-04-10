@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import { createLifecycleManager, runCompactLog } from "../lifecycle-manager.js";
 import { createSessionManager } from "../session-manager.js";
 import { writeMetadata, readMetadataRaw } from "../metadata.js";
+import { getEventsFilePath } from "../state-store.js";
 import type {
   OrchestratorConfig,
   PluginRegistry,
@@ -116,6 +118,26 @@ describe("check (single session)", () => {
     expect(lm.getStates().get("app-1")).toBe("working");
     const meta = readMetadataRaw(env.sessionsDir, "app-1");
     expect(meta!["status"]).toBe("working");
+  });
+
+  it("persists an initial snapshot for a newly discovered session", async () => {
+    const lm = setupCheck("app-1", {
+      session: makeSession({ status: "working", metadata: { agent: "mock-agent" } }),
+      metaOverrides: { agent: "mock-agent" },
+    });
+
+    await lm.check("app-1");
+
+    const eventsFile = getEventsFilePath(env.configPath, config.projects["my-app"]!.path);
+    const lines = readFileSync(eventsFile, "utf-8").split("\n").filter((line) => line.trim());
+    expect(lines.length).toBe(1);
+    expect(JSON.parse(lines[0])).toEqual(
+      expect.objectContaining({
+        sessionId: "app-1",
+        projectId: "my-app",
+        status: "working",
+      }),
+    );
   });
 
   it("uses worker-specific agent fallback when metadata does not persist an agent", async () => {

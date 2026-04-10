@@ -11,9 +11,18 @@
  * Reference: scripts/claude-ao-session, scripts/send-to-session
  */
 
-import { statSync, existsSync, readdirSync, writeFileSync, mkdirSync, utimesSync, unlinkSync } from "node:fs";
+import {
+  statSync,
+  existsSync,
+  readdirSync,
+  writeFileSync,
+  mkdirSync,
+  appendFileSync,
+  utimesSync,
+  unlinkSync,
+} from "node:fs";
 import { execFile } from "node:child_process";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { promisify } from "node:util";
 import {
@@ -61,6 +70,7 @@ import {
   generateTmuxName,
   validateAndStoreOrigin,
 } from "./paths.js";
+import { getEventsFilePath } from "./state-store.js";
 import { asValidOpenCodeSessionId } from "./opencode-session-id.js";
 import { normalizeOrchestratorSessionStrategy } from "./orchestrator-session-strategy.js";
 import {
@@ -106,6 +116,32 @@ async function deleteOpenCodeSession(sessionId: string): Promise<void> {
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function appendInitialSessionEvent(
+  config: OrchestratorConfig,
+  projectPath: string,
+  event: {
+    sessionId: SessionId;
+    projectId: string;
+    status: Session["status"];
+    metadata?: Record<string, unknown>;
+  },
+): void {
+  try {
+    const eventsPath = getEventsFilePath(config.configPath, projectPath);
+    mkdirSync(dirname(eventsPath), { recursive: true });
+    appendFileSync(
+      eventsPath,
+      `${JSON.stringify({
+        timestamp: Math.floor(Date.now() / 1000),
+        ...event,
+      })}\n`,
+      "utf-8",
+    );
+  } catch {
+    // Best effort — spawning must not fail if the event log is unavailable.
+  }
 }
 
 interface OpenCodeSessionListEntry {
@@ -1237,6 +1273,24 @@ export function createSessionManager(deps: SessionManagerDeps): OpenCodeSessionM
       if (Object.keys(session.metadata || {}).length > 0) {
         updateMetadata(sessionsDir, sessionId, session.metadata);
       }
+
+      appendInitialSessionEvent(config, project.path, {
+        sessionId,
+        projectId: spawnConfig.projectId,
+        status: session.status,
+        metadata: {
+          worktree: workspacePath,
+          branch,
+          status: "spawning",
+          tmuxName,
+          issue: spawnConfig.issueId,
+          project: spawnConfig.projectId,
+          agent: selection.agentName,
+          createdAt: new Date().toISOString(),
+          runtimeHandle: JSON.stringify(handle),
+          opencodeSessionId: session.metadata["opencodeSessionId"] ?? reusedOpenCodeSessionId,
+        },
+      });
     } catch (err) {
       // Clean up runtime and workspace on post-launch failure
       try {
@@ -1555,6 +1609,24 @@ export function createSessionManager(deps: SessionManagerDeps): OpenCodeSessionM
       if (Object.keys(session.metadata || {}).length > 0) {
         updateMetadata(sessionsDir, sessionId, session.metadata);
       }
+
+      appendInitialSessionEvent(config, project.path, {
+        sessionId,
+        projectId: orchestratorConfig.projectId,
+        status: session.status,
+        metadata: {
+          worktree: workspacePath,
+          branch,
+          status: "working",
+          role: "orchestrator",
+          tmuxName,
+          project: orchestratorConfig.projectId,
+          agent: selection.agentName,
+          createdAt: new Date().toISOString(),
+          runtimeHandle: JSON.stringify(handle),
+          opencodeSessionId: session.metadata["opencodeSessionId"] ?? reusableOpenCodeSessionId,
+        },
+      });
     } catch (err) {
       // Clean up runtime on post-launch failure
       try {
