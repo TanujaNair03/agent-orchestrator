@@ -175,7 +175,11 @@ export class StateStore {
     if (persisted) {
       this.persisted.add(event.sessionId);
     } else {
-      this.persisted.delete(event.sessionId);
+      // Only delete if session was NOT previously persisted
+      // This prevents syncState from downgrading persisted sessions
+      if (!this.persisted.has(event.sessionId)) {
+        this.persisted.delete(event.sessionId);
+      }
     }
   }
 
@@ -242,6 +246,11 @@ export class StateStore {
         metadata: sessionState.metadata,
       };
       lines.push(JSON.stringify(event));
+    }
+
+    // Guard: don't overwrite log if there are no persisted entries
+    if (lines.length === 0) {
+      return;
     }
 
     writeFileSync(tempFile, lines.join("\n") + "\n", "utf-8");
