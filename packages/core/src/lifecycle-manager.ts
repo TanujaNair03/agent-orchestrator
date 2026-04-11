@@ -255,7 +255,7 @@ export async function createLifecycleManager(
     : config.configPath;
 
   if (!projectPath) {
-    // v8 ignore next
+    /* v8 ignore next */
     throw new Error("Cannot initialize StateStore: project path is required.");
   }
 
@@ -1098,7 +1098,7 @@ export async function createLifecycleManager(
     // Fetch individual CI checks for failure details.
     // Use batch enrichment data when available to avoid an extra REST call;
     // fall back to getCIChecks() when the batch didn't run this cycle.
-    const prKey = `${session.pr.owner}/${session.pr.repo}#${session.pr.number}`.toLowerCase();
+    const prKey = getPRKey(session.pr);
     const cachedEnrichment = prEnrichmentCache.get(prKey);
 
     let checks: CICheck[];
@@ -1222,7 +1222,7 @@ export async function createLifecycleManager(
     // When batch enrichment ran (cachedData is present), use its hasConflicts value
     // to avoid 3 redundant REST calls from getMergeability() — the batch already
     // fetched the mergeable/mergeStateStatus fields via GraphQL.
-    const prKey = `${session.pr.owner}/${session.pr.repo}#${session.pr.number}`.toLowerCase();
+    const prKey = getPRKey(session.pr);
     const cachedData = prEnrichmentCache.get(prKey);
 
     let hasConflicts: boolean;
