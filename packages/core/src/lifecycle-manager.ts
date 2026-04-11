@@ -245,15 +245,9 @@ export async function createLifecycleManager(
   // Initialize StateStore for single-source-of-truth state management
   // Note: When scopedProjectId is provided, we use that project's path for state storage
   // When not provided (global dashboard), use the config's base directory for multi-project tracking
-  let projectPath = "";
-
-  if (scopedProjectId) {
-    projectPath = config.projects[scopedProjectId]?.path ?? "";
-  } else {
-    // Global mode: use a global state directory based on config path
-    // This allows tracking ALL sessions across all projects
-    projectPath = config.configPath;
-  }
+  const projectPath = scopedProjectId
+    ? (config.projects[scopedProjectId]?.path ?? "")
+    : config.configPath;
 
   if (!projectPath) {
     throw new Error("Cannot initialize StateStore: project path is required.");
