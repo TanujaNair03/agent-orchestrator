@@ -244,22 +244,19 @@ export async function createLifecycleManager(
 
   // Initialize StateStore for single-source-of-truth state management
   // Note: When scopedProjectId is provided, we use that project's path for state storage
+  // When not provided (global dashboard), use the config's base directory for multi-project tracking
   let projectPath = "";
 
   if (scopedProjectId) {
     projectPath = config.projects[scopedProjectId]?.path ?? "";
   } else {
-    // When no scopedProjectId is provided, use the first project if there's only one
-    const projectKeys = Object.keys(config.projects);
-    if (projectKeys.length === 1) {
-      projectPath = config.projects[projectKeys[0]]?.path ?? "";
-    }
+    // Global mode: use a global state directory based on config path
+    // This allows tracking ALL sessions across all projects
+    projectPath = config.configPath;
   }
 
   if (!projectPath) {
-    throw new Error(
-      "Cannot initialize StateStore: scopedProjectId is required when there are multiple projects.",
-    );
+    throw new Error("Cannot initialize StateStore: project path is required.");
   }
 
   const stateStore = createStateStore(config.configPath, projectPath);
@@ -1414,8 +1411,10 @@ export async function createLifecycleManager(
     if (polling) return;
     polling = true;
 
+    let sessions: Session[] = []; // Store for finally block access
+
     try {
-      const sessions = await sessionManager.list(scopedProjectId);
+      sessions = await sessionManager.list(scopedProjectId);
 
       // Include sessions that are active OR whose status changed from what we last saw
       // (e.g., list() detected a dead runtime and marked it "killed" — we need to
@@ -1512,6 +1511,10 @@ export async function createLifecycleManager(
         details: scopedProjectId ? { projectId: scopedProjectId } : { projectScope: "all" },
       });
     } finally {
+      // Prune dead sessions from StateStore before compaction
+      const activeSessionIds = sessions.map((s) => s.id);
+      stateStore.prune(activeSessionIds);
+
       // Await compaction to ensure the file system is stable before releasing the polling lock
       await maybeCompactLog();
       polling = false;

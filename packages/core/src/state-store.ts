@@ -259,6 +259,19 @@ export class StateStore {
     await this.cleanupArchives();
   }
 
+  /**
+   * Prune dead sessions from memory and prepare them for removal during compaction
+   * @param activeSessionIds - Array of session IDs that are still active
+   */
+  prune(activeSessionIds: SessionId[]): void {
+    const activeSet = new Set(activeSessionIds);
+    for (const sessionId of this.state.keys()) {
+      if (!activeSet.has(sessionId)) {
+        this.state.delete(sessionId);
+      }
+    }
+  }
+
   private async cleanupArchives(): Promise<void> {
     const files = await readdir(this.stateDir);
     const archives = files
