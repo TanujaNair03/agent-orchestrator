@@ -82,8 +82,7 @@ export class StateStore {
       await this.ensureEventsFileExists();
       this.hydrateState();
       this.initialized = true;
-    } catch {
-      // v8 ignore next 2
+    } /* v8 ignore next */ catch {
       // Handle file system errors during initialization
       throw new Error("StateStore initialization failed");
     }
@@ -97,8 +96,7 @@ export class StateStore {
       try {
         await mkdir(this.stateDir, { recursive: true });
         await writeFile(this.eventsFile, "", "utf-8");
-      } catch {
-        // v8 ignore next 2
+      } /* v8 ignore next */ catch {
         // Handle file system errors when creating events file
         return;
       }
@@ -150,8 +148,7 @@ export class StateStore {
     // The OS guarantees atomic writes for sizes < PIPE_BUF (typically 4KB)
     try {
       await appendFile(this.eventsFile, line, { flag: "a" });
-    } catch {
-      // v8 ignore next 2
+    } /* v8 ignore next */ catch {
       // Handle file system errors (permissions, disk full, etc.)
       throw new Error(`Failed to append event to state log: ${line}`);
     }
@@ -198,8 +195,7 @@ export class StateStore {
       try {
         const event = JSON.parse(line) as SessionEvent;
         this.applyEvent(event);
-      } catch {
-        // v8 ignore next 2
+      } /* v8 ignore next */ catch {
         // Discard truncated/incomplete JSON lines
         // This is expected after crashes/power loss
         continue;
@@ -268,8 +264,7 @@ export class StateStore {
       // Clean up the temp file to avoid leaving orphaned files
       try {
         await unlink(tempFile);
-      } catch {
-        // v8 ignore next 2
+      } /* v8 ignore next */ catch {
         // Best effort cleanup — ignore
         return;
       }

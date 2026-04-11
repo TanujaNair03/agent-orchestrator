@@ -64,6 +64,11 @@ function parseDuration(str: string): number {
   }
 }
 
+/** Generate a normalized PR cache key (lowercase, no spaces). */
+function getPRKey(pr: { owner: string; repo: string; number: number }): string {
+  return `${pr.owner}/${pr.repo}#${pr.number}`.toLowerCase();
+}
+
 /** Infer a reasonable priority from event type. */
 function inferPriority(type: EventType): EventPriority {
   if (type.includes("stuck") || type.includes("needs_input") || type.includes("errored")) {
@@ -406,7 +411,7 @@ export async function createLifecycleManager(
               data: {
                 plugin: pluginKey,
                 prCount: pluginPRs.length,
-                prKeys: pluginPRs.map((pr) => `${pr.owner}/${pr.repo}#${pr.number}`),
+                prKeys: pluginPRs.map((pr) => getPRKey(pr)),
               },
               level: "info",
             });
@@ -601,7 +606,7 @@ export async function createLifecycleManager(
     if (session.pr && scm) {
       try {
         // Try to use cached enrichment data from batch GraphQL query
-        const prKey = `${session.pr.owner}/${session.pr.repo}#${session.pr.number}`.toLowerCase();
+        const prKey = getPRKey(session.pr);
         const cachedData = prEnrichmentCache.get(prKey);
 
         if (cachedData) {
