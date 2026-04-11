@@ -26,11 +26,12 @@ import {
   type MockPlugins,
 } from "./test-utils.js";
 
-// Helper to flush microtasks without running pending timers
-const flush = () =>
-  new Promise<void>((resolve) => {
-    setImmediate(() => resolve());
-  });
+// Helper to flush microtasks
+const flush = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+};
 
 let env: TestEnvironment;
 let plugins: MockPlugins;
@@ -96,6 +97,7 @@ async function setupCheck(
     config: opts.configOverride ?? config,
     registry: opts.registry ?? mockRegistry,
     sessionManager: mockSessionManager,
+    projectId: "my-app",
   });
 }
 
@@ -105,6 +107,7 @@ describe("start / stop", () => {
       config,
       registry: mockRegistry,
       sessionManager: mockSessionManager,
+      projectId: "my-app",
     });
 
     lm.start(60_000);
@@ -419,6 +422,7 @@ describe("check (single session)", () => {
       config,
       registry,
       sessionManager: mockSessionManager,
+      projectId: "my-app",
     });
 
     await lm.check("app-1");
@@ -453,6 +457,7 @@ describe("check (single session)", () => {
       config,
       registry,
       sessionManager: mockSessionManager,
+      projectId: "my-app",
     });
 
     await lm.check("app-1");
@@ -486,6 +491,7 @@ describe("check (single session)", () => {
       config,
       registry,
       sessionManager: mockSessionManager,
+      projectId: "my-app",
     });
 
     await lm.check("app-orchestrator");
@@ -1667,7 +1673,7 @@ describe("getStates", () => {
 
 describe("rate limiting optimizations", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ toFake: ["setTimeout", "setInterval", "Date"] });
   });
 
   afterEach(() => {
@@ -1723,11 +1729,11 @@ describe("rate limiting optimizations", () => {
       config,
       registry,
       sessionManager: mockSessionManager,
+      projectId: "my-app",
     });
     lm.start(60_000);
-    // Advance time to trigger the interval and let the poll run to completion
-    await vi.advanceTimersByTimeAsync(60_000);
-    // Wait for any pending microtasks from the poll
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.runOnlyPendingTimersAsync();
     await flush();
     lm.stop();
 
@@ -1793,11 +1799,19 @@ describe("rate limiting optimizations", () => {
       config,
       registry,
       sessionManager: mockSessionManager,
+      projectId: "my-app",
     });
     lm.start(60_000);
-    // Advance time to trigger the interval and let the poll run to completion
+    // First poll cycle
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.runOnlyPendingTimersAsync();
+    await flush();
+
+    vi.mocked(mockSessionManager.send).mockClear();
+
+    // Second poll cycle
     await vi.advanceTimersByTimeAsync(60_000);
-    // Wait for any pending microtasks from the poll
+    await vi.runOnlyPendingTimersAsync();
     await flush();
     lm.stop();
 

@@ -244,11 +244,25 @@ export async function createLifecycleManager(
 
   // Initialize StateStore for single-source-of-truth state management
   // Note: When scopedProjectId is provided, we use that project's path for state storage
-  const projectPath = scopedProjectId ? (config.projects[scopedProjectId]?.path ?? "") : "";
-  const stateStore = createStateStore(
-    config.configPath,
-    (projectPath || Object.values(config.projects)[0]?.path) ?? "",
-  );
+  let projectPath = "";
+
+  if (scopedProjectId) {
+    projectPath = config.projects[scopedProjectId]?.path ?? "";
+  } else {
+    // When no scopedProjectId is provided, use the first project if there's only one
+    const projectKeys = Object.keys(config.projects);
+    if (projectKeys.length === 1) {
+      projectPath = config.projects[projectKeys[0]]?.path ?? "";
+    }
+  }
+
+  if (!projectPath) {
+    throw new Error(
+      "Cannot initialize StateStore: scopedProjectId is required when there are multiple projects.",
+    );
+  }
+
+  const stateStore = createStateStore(config.configPath, projectPath);
   await stateStore.init();
 
   const reactionTrackers = new Map<string, ReactionTracker>(); // "sessionId:reactionKey"

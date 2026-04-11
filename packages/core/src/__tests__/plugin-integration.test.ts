@@ -493,6 +493,7 @@ describe("plugin integration", () => {
         config,
         registry,
         sessionManager: mockSM,
+        projectId: "my-app",
       });
 
       // gh calls for determineStatus:
@@ -524,6 +525,7 @@ describe("plugin integration", () => {
         config,
         registry,
         sessionManager: mockSM,
+        projectId: "my-app",
       });
 
       // getPRState → merged
@@ -552,6 +554,7 @@ describe("plugin integration", () => {
         config,
         registry,
         sessionManager: mockSM,
+        projectId: "my-app",
       });
 
       // 1. getPRState → open

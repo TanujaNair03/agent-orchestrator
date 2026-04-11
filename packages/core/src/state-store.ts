@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import type { SessionId, SessionStatus } from "./types.js";
 import { readMetadata, listMetadata } from "./metadata.js";
-import { generateProjectId, getProjectBaseDir, getSessionsDir } from "./paths.js";
+import { getProjectBaseDir, getSessionsDir } from "./paths.js";
 import { loadConfig } from "./config.js";
 
 /**
@@ -152,7 +152,7 @@ export class StateStore {
       projectId: event.projectId,
       status: event.status,
       lastUpdated: event.timestamp,
-      metadata: event.metadata ?? existing?.metadata ?? {},
+      metadata: { ...existing?.metadata, ...event.metadata },
     };
     this.state.set(event.sessionId, newState);
   }
