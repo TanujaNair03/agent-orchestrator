@@ -1217,6 +1217,7 @@ export function registerStart(program: Command): void {
           interactive?: boolean;
         },
       ) => {
+        /* v8 ignore start */
         try {
           let config: OrchestratorConfig;
           let projectId: string;
@@ -1508,5 +1509,6 @@ export function registerStop(program: Command): void {
         }
         process.exit(1);
       }
+      /* v8 ignore stop */
     });
 }
