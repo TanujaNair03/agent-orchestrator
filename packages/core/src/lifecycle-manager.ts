@@ -280,6 +280,23 @@ export async function createLifecycleManager(
     return stateMap;
   }
 
+  // Track terminal PR sessions that have been processed for sidecar dispatches
+  const dispatchedTerminalPRs = new Set<SessionId>();
+
+  /**
+   * Check if a terminal PR session has already been dispatched
+   */
+  function isTerminalDispatched(sessionId: SessionId): boolean {
+    return dispatchedTerminalPRs.has(sessionId);
+  }
+
+  /**
+   * Mark a terminal PR session as dispatched
+   */
+  function markTerminalDispatched(sessionId: SessionId): void {
+    dispatchedTerminalPRs.add(sessionId);
+  }
+
   /**
    * Record a state transition event to the StateStore
    */
@@ -1395,6 +1412,11 @@ export async function createLifecycleManager(
       maybeDispatchCIFailureDetails(session, oldStatus, newStatus, transitionReaction),
       maybeDispatchMergeConflicts(session, newStatus),
     ]);
+
+    // Mark terminal PR session as dispatched after sidecar dispatches
+    if (TERMINAL_STATUSES.has(session.status) && session.pr) {
+      markTerminalDispatched(session.id);
+    }
   }
 
   /** Run one polling cycle across all sessions. */
@@ -1405,20 +1427,23 @@ export async function createLifecycleManager(
     if (polling) return;
     polling = true;
 
-    let sessions: Session[] = []; // Store for finally block access
+    let sessionsFetched = false;
+    let sessions: Session[] = [];
 
     try {
       sessions = await sessionManager.list(scopedProjectId);
+      sessionsFetched = true;
 
       // Include sessions that are active OR whose status changed from what we last saw
       // (e.g., list() detected a dead runtime and marked it "killed" — we need to
       // process that transition even though the new status is terminal)
-      // Also keep PR sessions in the loop for sidecar dispatches (CI details, merge conflicts)
+      // Also keep terminal PR sessions only if they haven't been fully dispatched yet
       const sessionsToCheck = sessions.filter((s) => {
         if (!TERMINAL_STATUSES.has(s.status)) return true;
         const tracked = getSessionStatus(s.id);
         if (tracked !== undefined && tracked !== s.status) return true;
-        if (s.pr) return true; // Keep PR sessions for sidecar dispatches
+        // Only poll terminal PR sessions if not yet dispatched
+        if (s.pr && !isTerminalDispatched(s.id)) return true;
         return false;
       });
 
@@ -1505,9 +1530,11 @@ export async function createLifecycleManager(
         details: scopedProjectId ? { projectId: scopedProjectId } : { projectScope: "all" },
       });
     } finally {
-      // Prune dead sessions from StateStore before compaction
-      const activeSessionIds = sessions.map((s) => s.id);
-      stateStore.prune(activeSessionIds);
+      // Prune dead sessions from StateStore ONLY if sessions were successfully fetched
+      if (sessionsFetched) {
+        const activeSessionIds = sessions.map((s) => s.id);
+        stateStore.prune(activeSessionIds);
+      }
 
       // Await compaction to ensure the file system is stable before releasing the polling lock
       await maybeCompactLog();
