@@ -86,14 +86,14 @@ function inferPriority(type: EventType): EventPriority {
   return "info";
 }
 
-export function runCompactLog(
-  store: { compactLog: () => void },
+export async function runCompactLog(
+  store: { compactLog: () => Promise<void> },
   observer: ProjectObserver | undefined,
   projectId: string | undefined,
-): void {
+): Promise<void> {
   const compactCorrelationId = createCorrelationId("compact-log");
   try {
-    store.compactLog();
+    await store.compactLog();
     observer?.recordOperation?.({
       metric: "lifecycle_poll",
       operation: "compact_log",
@@ -301,7 +301,7 @@ export async function createLifecycleManager(
     pollCycleCount++;
     if (pollCycleCount >= 10) {
       pollCycleCount = 0;
-      runCompactLog(stateStore, observer, scopedProjectId);
+      void runCompactLog(stateStore, observer, scopedProjectId);
     }
   }
 

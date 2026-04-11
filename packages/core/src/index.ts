@@ -157,11 +157,7 @@ export {
 
 export {
   createStateStore,
-  migrateFromMetadata,
-  migrateAllProjects,
-  getStateDir,
   getEventsFilePath,
-  hasStateStore,
   type SessionEvent,
   type SessionState,
 } from "./state-store.js";
